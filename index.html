@@ -280,6 +280,7 @@ code{background:var(--deep);padding:1px 5px;border-radius:5px;font-size:.88em}
         <li>Pair the bird's Bluetooth board in your phone's Bluetooth settings, the same way you do for music.</li>
         <li>Turn the phone's volume most of the way up. The beak moves with loudness, so quiet audio means a lazy beak.</li>
         <li>Tap <b>Test voice</b>. If you hear it from the phone instead of the bird, reconnect the board and try again.</li>
+        <li>No voice at all? Turn off Silent Mode on the iPhone. Then turn the volume up while he's talking, since that sets the media volume.</li>
       </ol>
     </div>
   </section>
@@ -294,6 +295,7 @@ code{background:var(--deep);padding:1px 5px;border-radius:5px;font-size:.88em}
         <select id="model" data-set="model"><option value="claude-haiku-5-5">Haiku (fastest, cheapest)</option><option value="claude-sonnet-5-5">Sonnet (smarter, a little slower)</option></select>
       </div>
       <div class="btns"><button class="btn" type="button" id="testBrain">Test his brain</button></div>
+      <p class="help" style="margin:0">App version 1.2</p>
     </div>
     <div class="group">
       <h2>Hands-free listening</h2>
@@ -482,7 +484,11 @@ function audio(){
   if(actx.state === "suspended") actx.resume().catch(()=>{});
   return actx;
 }
+function setSession(type){
+  try{ if(navigator.audioSession && navigator.audioSession.type !== type) navigator.audioSession.type = type; }catch(e){}
+}
 function unlock(){
+  setSession("playback");
   if(unlocked) return; unlocked = true; audio();
   try{ if("speechSynthesis" in window){ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } }catch(e){}
 }
@@ -570,8 +576,8 @@ function stopSpeaking(){ playToken++; try{ speechSynthesis.cancel(); }catch(e){}
 async function perform(text, opts){
   opts = opts || {};
   const my = ++playToken; setStatus("speaking"); lastReply = text;
-  try{ speechSynthesis.cancel(); }catch(e){}
-  await wait(250);
+  setSession("playback");
+  try{ if(speechSynthesis.speaking || speechSynthesis.pending){ speechSynthesis.cancel(); await wait(250); } }catch(e){}
   const lead = S.squawkFirst === "always" || (S.squawkFirst === "sometimes" && Math.random() < 0.4);
   if(opts.lead !== false && lead && !/^\s*\[(squawk|whistle)\]/i.test(text)) await squawk();
   const parts = text.split(/\[(squawk|whistle)\]/i);
@@ -613,6 +619,7 @@ function startListening(fromTap){
   rec.onerror = e => { err = e.error; };
   rec.onend = () => {
     clearTimeout(quiet); rec = null; $("interim").textContent = "";
+    setSession("playback");
     if(err === "not-allowed" || err === "service-not-allowed" || err === "audio-capture"){
       if(!heardOnce){ micBlocked = true; setStatus("idle"); hintTyping(true); }
       else { setStatus("idle"); toast("Tap the drum to talk again."); }
@@ -623,7 +630,8 @@ function startListening(fromTap){
     else { setStatus("idle"); if(fromTap) toast("Didn't catch that. Tap and try again."); }
   };
   setStatus("listening");
-  try{ rec.start(); }catch(e){ rec = null; setStatus("idle"); toast("Couldn't start the mic. Tap again."); }
+  setSession("play-and-record");
+  try{ rec.start(); }catch(e){ rec = null; setSession("playback"); setStatus("idle"); toast("Couldn't start the mic. Tap again."); }
 }
 $("drum").addEventListener("click", () => {
   unlock(); lastActivity = Date.now();
