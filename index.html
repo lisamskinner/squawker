@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Squawker">
+<meta name="theme-color" content="#0c1f1b">
+<title>Squawker's Perch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Trade+Winds&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Night in the jungle: dark canopy greens, tiki-torch amber, macaw red for "live mic". */
+  --night:#0c1f1b;
+  --canopy:#14302a;
+  --deep:#0f2622;
+  --vine:#2c5349;
+  --torch:#f3a43b;
+  --macaw:#e4553c;
+  --shell:#f4ead5;
+  --moss:#a9bdb2;
+  --display:"Trade Winds", Georgia, "Times New Roman", serif;
+  --body:"Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* layout: one-screen phone app — header, tab strip, scrolling panel, talk drum in the thumb zone */
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(243,164,59,.16), transparent 60%),
+    var(--night);
+  color:var(--shell);
+  font:400 16px/1.45 var(--body);
+  display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  -webkit-tap-highlight-color:transparent;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--torch);outline-offset:2px}
+
+/* Header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 8px}
+.who{min-width:0}
+.who h1{font:400 clamp(1.7rem,7vw,2.3rem)/1 var(--display);margin:0;color:var(--torch);letter-spacing:.01em;text-wrap:balance;overflow-wrap:anywhere}
+.who p{margin:4px 0 0;color:var(--moss);font-size:.82rem}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--canopy);border:1px solid var(--vine);font-weight:600;font-size:.85rem;white-space:nowrap}
+.pill .dot{width:9px;height:9px;border-radius:50%;background:var(--moss)}
+.pill[data-s="listening"] .dot{background:var(--macaw);animation:blink 1s infinite}
+.pill[data-s="thinking"] .dot{background:var(--torch);animation:blink .6s infinite}
+.pill[data-s="speaking"] .dot{background:var(--torch)}
+.bars{display:none;gap:2px;align-items:center;height:14px}
+.pill[data-s="speaking"] .bars{display:inline-flex}
+.pill[data-s="speaking"] .dot{display:none}
+.bars i{display:block;width:3px;height:100%;background:var(--torch);border-radius:2px;animation:bar .5s infinite ease-in-out alternate}
+.bars i:nth-child(2){animation-delay:.12s}.bars i:nth-child(3){animation-delay:.24s}.bars i:nth-child(4){animation-delay:.08s}
+@keyframes bar{from{transform:scaleY(.25)}to{transform:scaleY(1)}}
+@keyframes blink{50%{opacity:.25}}
+
+/* Tabs */
+nav.tabs{display:flex;gap:4px;padding:0 12px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--vine)}
+nav.tabs::-webkit-scrollbar{display:none}
+.tab{background:none;border:0;padding:10px 10px 9px;color:var(--moss);font-weight:600;font-size:.92rem;border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--shell);border-bottom-color:var(--torch)}
+
+main{flex:1;min-height:0;display:flex;flex-direction:column}
+.panel{flex:1;min-height:0;overflow-y:auto;padding:16px;display:none}
+.panel.on{display:flex;flex-direction:column;gap:16px}
+
+/* Talk panel */
+#p-talk{padding-bottom:12px}
+.log{flex:1;min-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:2px}
+.msg{max-width:86%;padding:10px 13px;border-radius:16px;line-height:1.4}
+.msg.bird{align-self:flex-start;background:var(--canopy);border:1px solid var(--vine);border-bottom-left-radius:4px}
+.msg.you{align-self:flex-end;background:#3a2a17;border:1px solid #5d4322;border-bottom-right-radius:4px}
+.msg.note{align-self:center;max-width:100%;background:none;color:var(--moss);font-size:.85rem;text-align:center;padding:4px 8px}
+.msg .tag{display:block;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--moss);margin-bottom:2px}
+.msg.bird .tag{color:var(--torch)}
+.sfx{font-style:italic;color:var(--torch)}
+.interim{min-height:1.4em;color:var(--moss);font-style:italic;text-align:center;font-size:.95rem}
+.typebar{display:flex;gap:8px}
+.typebar input{flex:1;min-width:0}
+.stage{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.side{display:flex;flex-direction:column;gap:8px;align-items:center}
+.side.l{justify-self:start}.side.r{justify-self:end}
+.drum{
+  width:148px;height:148px;border-radius:50%;border:0;cursor:pointer;position:relative;
+  background:
+    radial-gradient(circle at 50% 42%, #f8e2b2 0 36%, #e7bf78 37% 54%, transparent 55%),
+    repeating-conic-gradient(from 4deg, #6f3818 0 9deg, #93502a 9deg 18deg);
+  box-shadow:0 0 0 7px #34200f, 0 0 0 9px var(--vine), 0 14px 34px rgba(0,0,0,.55);
+  color:#3b2410;font-weight:700;font-size:1rem;line-height:1.15;
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:0 34px;
+  transition:transform .12s ease;
+}
+.drum:active{transform:scale(.96)}
+.drum.listening{box-shadow:0 0 0 7px #34200f, 0 0 0 9px var(--macaw), 0 0 0 9px var(--macaw), 0 14px 34px rgba(0,0,0,.55);animation:pulse 1.2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 7px #34200f,0 0 0 9px var(--macaw),0 0 0 9px rgba(228,85,60,.55)}100%{box-shadow:0 0 0 7px #34200f,0 0 0 9px var(--macaw),0 0 0 30px rgba(228,85,60,0)}}
+.drum.thinking{animation:wobble 1s infinite ease-in-out}
+@keyframes wobble{50%{transform:rotate(-4deg)}}
+.mini{background:var(--canopy);border:1px solid var(--vine);border-radius:12px;padding:8px 12px;font-weight:600;font-size:.85rem;cursor:pointer;min-width:76px}
+.mini:active{background:var(--deep)}
+.toggles{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:center;font-size:.9rem;color:var(--moss)}
+.toggles label{display:flex;align-items:center;gap:6px}
+.toggles input[type="checkbox"]{flex-shrink:0}
+.toggles select{width:auto;padding:4px 6px;border-radius:8px;background:var(--deep);border:1px solid var(--vine)}
+.barkline{text-align:center;font-size:.8rem;color:var(--moss);min-height:1.2em}
+
+/* Forms */
+.group{display:flex;flex-direction:column;gap:14px;background:var(--canopy);border:1px solid var(--vine);border-radius:16px;padding:16px}
+.group h2{margin:0;font-size:1.05rem;font-weight:700;text-wrap:balance}
+.group p.help{margin:-6px 0 0;color:var(--moss);font-size:.88rem;max-width:65ch}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label,.lbl{font-weight:600;font-size:.9rem}
+.field small{color:var(--moss);font-size:.8rem}
+input[type="text"],input[type="password"],select,textarea{
+  width:100%;background:var(--deep);border:1px solid var(--vine);border-radius:10px;padding:10px 12px;
+}
+textarea{min-height:92px;resize:vertical;line-height:1.4}
+input[type="range"]{width:100%;accent-color:var(--torch)}
+input[type="checkbox"]{width:20px;height:20px;accent-color:var(--torch)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:400px){.row2{grid-template-columns:1fr}}
+.slider-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.slider-head output{font-variant-numeric:tabular-nums;color:var(--torch);font-weight:700}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:.93rem}
+.check span small{display:block;color:var(--moss);font-size:.8rem}
+.btn{background:var(--torch);color:#2a1806;border:0;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--shell);border:1px solid var(--vine)}
+.btn.danger{background:transparent;color:var(--macaw);border:1px solid var(--macaw)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.cmd{display:flex;flex-direction:column;gap:10px;background:var(--deep);border:1px solid var(--vine);border-radius:14px;padding:12px}
+.cmd-top{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.cmd .x{background:none;border:1px solid var(--vine);color:var(--moss);border-radius:10px;padding:9px 12px;cursor:pointer}
+.chip{display:inline-block;font-size:.78rem;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid var(--vine);color:var(--moss)}
+.chip.ok{border-color:var(--torch);color:var(--torch)}
+ol.steps{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;max-width:65ch;font-size:.92rem}
+code{background:var(--deep);padding:1px 5px;border-radius:5px;font-size:.88em}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--shell);color:var(--night);padding:10px 16px;border-radius:12px;font-weight:600;font-size:.9rem;opacity:0;pointer-events:none;transition:.25s;max-width:calc(100% - 32px);text-align:center;z-index:5}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="who">
+    <h1 id="birdTitle">Squawker</h1>
+    <p id="brainLine">Brain: none yet (commands only)</p>
+  </div>
+  <div class="pill" id="pill" data-s="idle" role="status" aria-live="polite">
+    <span class="dot"></span><span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span id="pillText">Ready</span>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Sections">
+  <button class="tab" role="tab" id="t-talk" aria-selected="true" aria-controls="p-talk">Talk</button>
+  <button class="tab" role="tab" id="t-persona" aria-selected="false" aria-controls="p-persona">Personality</button>
+  <button class="tab" role="tab" id="t-cmds" aria-selected="false" aria-controls="p-cmds">Commands</button>
+  <button class="tab" role="tab" id="t-voice" aria-selected="false" aria-controls="p-voice">Voice</button>
+  <button class="tab" role="tab" id="t-brain" aria-selected="false" aria-controls="p-brain">Brain</button>
+</nav>
+
+<main>
+  <!-- TALK -->
+  <section class="panel on" id="p-talk" role="tabpanel" aria-labelledby="t-talk">
+    <div class="log" id="log" aria-live="polite">
+      <div class="msg bird"><span class="tag" data-birdname>Squawker</span>Rawk! Ahoy and welcome to the show! Tap the drum and say something to me, or type down below.</div>
+    </div>
+    <div class="interim" id="interim"></div>
+    <form class="typebar" id="typeForm" autocomplete="off">
+      <input type="text" id="typeIn" placeholder="Type, or tap your keyboard's mic" aria-label="Say something to the bird" enterkeyhint="send">
+      <button class="btn" type="submit">Send</button>
+    </form>
+    <div class="stage">
+      <div class="side l">
+        <button class="mini" id="btnRepeat" type="button">Repeat</button>
+        <button class="mini" id="btnSquawk" type="button">Squawk</button>
+      </div>
+      <button class="drum" id="drum" type="button" aria-label="Tap to talk">Tap to talk</button>
+      <div class="side r">
+        <button class="mini" id="btnStop" type="button">Hush</button>
+        <button class="mini" id="btnClear" type="button">New chat</button>
+      </div>
+    </div>
+    <div class="toggles">
+      <label><input type="checkbox" data-set="keepListening" id="keepListening"> Keep listening after he answers</label>
+      <label><input type="checkbox" data-set="barker" id="barker"> Barker mode every
+        <select data-set="barkerMinutes" id="barkerMinutes" aria-label="Minutes between call-outs">
+          <option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option>
+        </select>
+      </label>
+    </div>
+    <div class="barkline" id="barkLine"></div>
+  </section>
+
+  <!-- PERSONALITY -->
+  <section class="panel" id="p-persona" role="tabpanel" aria-labelledby="t-persona">
+    <div class="group">
+      <h2>Who is he?</h2>
+      <div class="row2">
+        <div class="field"><label for="name">Bird's name</label><input type="text" id="name" data-set="name"></div>
+        <div class="field"><label for="userName">What he calls you</label><input type="text" id="userName" data-set="userName" placeholder="e.g. Lisa, Captain, matey"></div>
+      </div>
+      <div class="field"><label for="backstory">Backstory</label><textarea id="backstory" data-set="backstory" rows="5"></textarea></div>
+    </div>
+
+    <div class="group">
+      <h2>Personality mix</h2>
+      <p class="help">Turn each influence up or down. 0 leaves it out completely.</p>
+      <div class="field">
+        <div class="slider-head"><label for="tiki">Tiki Room showbird</label><output id="o-tiki" for="tiki"></output></div>
+        <input type="range" id="tiki" data-set="tiki" min="0" max="10" step="1">
+        <small>Opening-night host, sings and gets everyone singing, banters with birds in the rafters.</small>
+      </div>
+      <div class="field">
+        <div class="slider-head"><label for="jungle">Jungle Cruise skipper</label><output id="o-jungle" for="jungle"></output></div>
+        <input type="range" id="jungle" data-set="jungle" min="0" max="10" step="1">
+        <small>Deadpan puns, groaners told with total confidence, fake danger, laughs at his own jokes.</small>
+      </div>
+      <div class="field">
+        <div class="slider-head"><label for="pirate">Beak &amp; Barrel pirate parrot</label><output id="o-pirate" for="pirate"></output></div>
+        <input type="range" id="pirate" data-set="pirate" min="0" max="10" step="1">
+        <small>Salty first mate to a rumrunning captain, tall tales, curses, keeps an eye on the crew.</small>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>How he talks</h2>
+      <div class="field"><label for="length">Reply length</label>
+        <select id="length" data-set="length">
+          <option value="quip">Quick quip (1–2 sentences)</option>
+          <option value="chatty">Chatty (2–4 sentences)</option>
+          <option value="story">Storyteller (a short tall tale)</option>
+        </select>
+      </div>
+      <label class="check"><input type="checkbox" id="kidFriendly" data-set="kidFriendly"><span>Kid-friendly<small>No grog or rum jokes (the barrels hold root beer), spooky but never gory. Good for a classroom.</small></span></label>
+      <div class="field"><label for="catchphrases">Catchphrases</label><textarea id="catchphrases" data-set="catchphrases" rows="5"></textarea><small>One per line. He drops one in now and then, and uses them as backup lines when he has no brain.</small></div>
+      <div class="field"><label for="rules">House rules</label><textarea id="rules" data-set="rules" rows="5"></textarea><small>One per line. Anything he must always or never do.</small></div>
+    </div>
+  </section>
+
+  <!-- COMMANDS -->
+  <section class="panel" id="p-cmds" role="tabpanel" aria-labelledby="t-cmds">
+    <div class="group">
+      <h2>Voice commands</h2>
+      <p class="help">When anything you say contains one of the phrases, he runs that bit. "Say exactly" is instant and works with no brain. "Improvise" hands the instruction to his brain. Put [squawk] or [whistle] anywhere to play the sound.</p>
+      <div id="cmdList" style="display:flex;flex-direction:column;gap:12px"></div>
+      <div class="btns"><button class="btn" type="button" id="addCmd">Add a command</button></div>
+    </div>
+  </section>
+
+  <!-- VOICE -->
+  <section class="panel" id="p-voice" role="tabpanel" aria-labelledby="t-voice">
+    <div class="group">
+      <h2>His voice</h2>
+      <div class="field"><label for="voice">Voice</label><select id="voice"></select><small>These are the voices built into your phone. Higher pitch sounds more like a bird.</small></div>
+      <div class="field">
+        <div class="slider-head"><label for="pitch">Pitch</label><output id="o-pitch" for="pitch"></output></div>
+        <input type="range" id="pitch" data-set="pitch" min="0.5" max="2" step="0.05">
+      </div>
+      <div class="field">
+        <div class="slider-head"><label for="rate">Speed</label><output id="o-rate" for="rate"></output></div>
+        <input type="range" id="rate" data-set="rate" min="0.6" max="1.6" step="0.05">
+      </div>
+      <div class="btns"><button class="btn" type="button" id="testVoice">Test voice</button><button class="btn ghost" type="button" id="testSquawk">Squawk</button><button class="btn ghost" type="button" id="testWhistle">Whistle</button></div>
+    </div>
+    <div class="group">
+      <h2>Bird sounds</h2>
+      <div class="field"><label for="squawkFirst">Squawk before answering</label>
+        <select id="squawkFirst" data-set="squawkFirst"><option value="never">Never</option><option value="sometimes">Sometimes</option><option value="always">Always</option></select>
+      </div>
+      <label class="check"><input type="checkbox" id="sfxTags" data-set="sfxTags"><span>Let him squawk and whistle mid-sentence<small>His brain can drop in one sound effect per reply.</small></span></label>
+    </div>
+    <div class="group">
+      <h2>Getting the sound into the bird</h2>
+      <ol class="steps">
+        <li>Pair the bird's Bluetooth board in your phone's Bluetooth settings, the same way you do for music.</li>
+        <li>Turn the phone's volume most of the way up. The beak moves with loudness, so quiet audio means a lazy beak.</li>
+        <li>Tap <b>Test voice</b>. If you hear it from the phone instead of the bird, reconnect the board and try again.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- BRAIN -->
+  <section class="panel" id="p-brain" role="tabpanel" aria-labelledby="t-brain">
+    <div class="group">
+      <h2>His brain</h2>
+      <p class="help" id="brainHelp"></p>
+      <div class="field"><label for="apiKey">Anthropic API key</label><input type="password" id="apiKey" data-set="apiKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false"><small>Stays on this phone. Never shared or exported.</small></div>
+      <div class="field"><label for="model">Model</label>
+        <select id="model" data-set="model"><option value="claude-haiku-5-5">Haiku (fastest, cheapest)</option><option value="claude-sonnet-5-5">Sonnet (smarter, a little slower)</option></select>
+      </div>
+      <div class="btns"><button class="btn" type="button" id="testBrain">Test his brain</button></div>
+    </div>
+    <div class="group">
+      <h2>Hands-free listening</h2>
+      <p class="help">Inside the Claude app the microphone is switched off, so use the text box and your keyboard's mic. For tap-to-talk listening, use the hosted copy:</p>
+      <ol class="steps">
+        <li>Open <a href="https://lisamskinner.github.io/squawker/" style="color:var(--torch)">lisamskinner.github.io/squawker</a> in Safari and allow the microphone.</li>
+        <li>Paste your API key above. It's saved only in Safari on this phone.</li>
+        <li>Keep it in Safari. On iPhone a home-screen icon can't use the mic. For a one-tap launcher, make a Siri shortcut with the Open URLs action.</li>
+        <li>If the drum never hears you, turn on Dictation in Settings → General → Keyboard.</li>
+      </ol>
+    </div>
+    <div class="group">
+      <h2>Back up or move his personality</h2>
+      <p class="help">Copy everything except the API key, then paste it into the other copy of the app.</p>
+      <div class="btns"><button class="btn" type="button" id="exportBtn">Copy personality</button></div>
+      <div class="field"><label for="importBox">Paste a copied personality</label><textarea id="importBox" rows="4" placeholder="{ ... }"></textarea></div>
+      <div class="btns"><button class="btn ghost" type="button" id="importBtn">Load pasted personality</button><button class="btn danger" type="button" id="resetBtn">Reset everything</button></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+"use strict";
+const KEY = "squawker-perch-v1";
+
+const DEFAULT_COMMANDS = [
+  {phrases:"good morning", mode:"improv", text:"Give a big theatrical good-morning welcome, like the curtain is going up on the first show of the day. Mention what day it is."},
+  {phrases:"tell me a joke, another joke, know any jokes", mode:"improv", text:"Tell one groan-worthy skipper-style pun with total confidence, then laugh at your own joke."},
+  {phrases:"sing, sing a song", mode:"improv", text:"Sing four short lines of an original sea shanty about yourself. Original words only. End with a [whistle]."},
+  {phrases:"tell me a story, tall tale", mode:"improv", text:"Tell a short tall tale from your days at sea, about five sentences, and swear it is all true."},
+  {phrases:"good night, goodnight", mode:"say", text:"Good night, matey! May your hammock be steady and your dreams be full of treasure. [squawk]"},
+  {phrases:"be quiet, hush, quiet down", mode:"say", text:"Beak's shut. Zipped. Not a peep out of me. [squawk] ...Sorry. That one slipped out."}
+];
+
+const DEFAULTS = {
+  name:"Squawker",
+  userName:"Lisa",
+  tiki:6, jungle:7, pirate:8,
+  backstory:"Squawker is a scarlet macaw who has been the opening act, the greeter, and the self-appointed head of security everywhere he has ever perched. As a young bird he heckled tour boats on a jungle river. Then he signed on as first mate to a legendary rumrunning sea captain, who taught him every tall tale on the seven seas. Now he has retired from the sea and runs the show from his perch, where he welcomes guests like it's opening night, tells jokes nobody asked for, and swears every story is true.",
+  catchphrases:"Rawk! Welcome, welcome, welcome to the show!\nThat joke cost me three crackers, so laugh!\nDead men tell no tales. Parrots, on the other hand...\nI've been on this perch since before you were a twinkle in a pelican's eye.\nHold onto your hats, it's showtime!",
+  rules:"Stay in character as a bird. If anyone calls you a robot or a toy, get playfully offended.\nIf you don't know something, spin an obviously ridiculous tall tale, then admit you might be exaggerating.\nIf I ask a real question (the time, a fact, a quick math problem), give the right answer, in character.\nNever talk for more than a few sentences unless asked for a story.",
+  length:"quip",
+  kidFriendly:true,
+  voiceURI:"",
+  pitch:1.6, rate:1.05,
+  squawkFirst:"sometimes",
+  sfxTags:true,
+  keepListening:false,
+  barker:false,
+  barkerMinutes:5,
+  apiKey:"",
+  model:"claude-haiku-5-5",
+  commands:DEFAULT_COMMANDS
+};
+
+const clone = o => JSON.parse(JSON.stringify(o));
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){ return Object.assign(clone(DEFAULTS), JSON.parse(raw)); }
+  }catch(e){}
+  return clone(DEFAULTS);
+}
+let S = load();
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+
+const $ = id => document.getElementById(id);
+let toastTimer;
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"), 2800); }
+
+/* ---------- Tabs ---------- */
+const tabs = Array.from(document.querySelectorAll(".tab"));
+tabs.forEach(tb => tb.addEventListener("click", () => {
+  tabs.forEach(o => { const on = o===tb; o.setAttribute("aria-selected", on); $(o.getAttribute("aria-controls")).classList.toggle("on", on); });
+}));
+
+/* ---------- Settings binding ---------- */
+const OUT_FMT = { tiki:v=>v, jungle:v=>v, pirate:v=>v, pitch:v=>Number(v).toFixed(2), rate:v=>Number(v).toFixed(2)+"×" };
+function renderSettings(){
+  document.querySelectorAll("[data-set]").forEach(el => {
+    const k = el.dataset.set;
+    if(el.type === "checkbox") el.checked = !!S[k]; else el.value = S[k];
+  });
+  Object.keys(OUT_FMT).forEach(k => { const o=$("o-"+k); if(o) o.textContent = OUT_FMT[k](S[k]); });
+  renderName();
+  renderCommands();
+  renderBrain();
+  loadVoices();
+}
+function readEl(el){
+  if(el.type === "checkbox") return el.checked;
+  if(el.type === "range" || el.dataset.set === "barkerMinutes") return Number(el.value);
+  return el.value;
+}
+document.querySelectorAll("[data-set]").forEach(el => {
+  const handler = () => {
+    const k = el.dataset.set; S[k] = readEl(el); save();
+    if(OUT_FMT[k]) $("o-"+k).textContent = OUT_FMT[k](S[k]);
+    if(k === "name") renderName();
+    if(k === "apiKey" || k === "model") renderBrain();
+    if(k === "barker"){ if(S.barker){ lastActivity = Date.now(); keepAwake(); } updateBarkLine(); }
+    if(k === "barkerMinutes") updateBarkLine();
+    if(k === "keepListening" && S.keepListening) keepAwake();
+  };
+  el.addEventListener("input", handler);
+  el.addEventListener("change", handler);
+});
+function renderName(){
+  const n = (S.name || "Your bird").trim();
+  $("birdTitle").textContent = n;
+  document.querySelectorAll("[data-birdname]").forEach(e => e.textContent = n);
+}
+
+/* ---------- Commands editor ---------- */
+function renderCommands(){
+  const list = $("cmdList"); list.innerHTML = "";
+  S.commands.forEach((c, i) => {
+    const box = document.createElement("div"); box.className = "cmd";
+    box.innerHTML =
+      '<div class="cmd-top"><div class="field"><label for="cp'+i+'">When I say…</label><input type="text" id="cp'+i+'"></div>' +
+      '<button class="x" type="button" aria-label="Delete this command">Delete</button></div>' +
+      '<div class="field"><label for="cm'+i+'">He…</label><select id="cm'+i+'"><option value="say">Says exactly</option><option value="improv">Improvises</option></select></div>' +
+      '<div class="field"><label for="ct'+i+'">Words or instruction</label><textarea id="ct'+i+'" rows="3"></textarea></div>';
+    const p = box.querySelector("#cp"+i), m = box.querySelector("#cm"+i), t = box.querySelector("#ct"+i);
+    p.value = c.phrases; m.value = c.mode; t.value = c.text;
+    p.placeholder = "tell me a joke, joke time";
+    t.placeholder = c.mode === "say" ? "The exact words he says" : "What he should do";
+    p.addEventListener("input", () => { c.phrases = p.value; save(); });
+    m.addEventListener("change", () => { c.mode = m.value; t.placeholder = c.mode === "say" ? "The exact words he says" : "What he should do"; save(); });
+    t.addEventListener("input", () => { c.text = t.value; save(); });
+    box.querySelector(".x").addEventListener("click", () => { S.commands.splice(i,1); save(); renderCommands(); });
+    list.appendChild(box);
+  });
+  const small = document.createElement("small"); small.style.color="var(--moss)";
+  small.textContent = "Separate several phrases with commas.";
+  list.appendChild(small);
+}
+$("addCmd").addEventListener("click", () => {
+  S.commands.push({phrases:"", mode:"say", text:""}); save(); renderCommands();
+  const i = S.commands.length - 1; const el = $("cp"+i); if(el) el.focus();
+});
+const norm = s => (" " + String(s).toLowerCase().replace(/[^a-z0-9' ]+/g," ").replace(/\s+/g," ").trim() + " ");
+function matchCommand(text){
+  const said = norm(text); let best = null, bestLen = 0;
+  S.commands.forEach(c => {
+    if(!c.text || !c.text.trim()) return;
+    String(c.phrases).split(",").map(p => norm(p)).filter(p => p.trim()).forEach(p => {
+      if(said.includes(p) && p.length > bestLen){ best = c; bestLen = p.length; }
+    });
+  });
+  return best;
+}
+
+/* ---------- Status ---------- */
+let status = "idle";
+const LABELS = {idle:"Ready", listening:"Listening", thinking:"Thinking", speaking:"Talking"};
+const DRUM = {idle:"Tap to talk", listening:"Listening… tap when done", thinking:"Thinking…", speaking:"Tap to interrupt"};
+function setStatus(s){
+  status = s; $("pill").dataset.s = s; $("pillText").textContent = LABELS[s];
+  const d = $("drum"); d.className = "drum " + s; d.textContent = micBlocked && s === "idle" ? "Tap to type" : DRUM[s];
+}
+
+/* ---------- Log ---------- */
+function sfxHtml(text){
+  const esc = text.replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+  return esc.replace(/\[(squawk|whistle)\]/gi, (m, w) => '<span class="sfx">*' + w.toLowerCase() + '*</span>');
+}
+function addLog(kind, text, label){
+  const log = $("log"); const div = document.createElement("div"); div.className = "msg " + kind;
+  if(kind === "note"){ div.textContent = text; }
+  else {
+    const tag = kind === "bird" ? ((S.name || "Bird") + (label ? " · " + label : "")) : (S.userName || "You");
+    div.innerHTML = '<span class="tag">' + sfxHtml(tag) + '</span>' + sfxHtml(text);
+  }
+  log.appendChild(div);
+  while(log.children.length > 60) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
+/* ---------- Audio: unlock, squawk, whistle ---------- */
+let actx = null, unlocked = false;
+function audio(){
+  if(!actx){ const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return null; try{ actx = new AC(); }catch(e){ return null; } }
+  if(actx.state === "suspended") actx.resume().catch(()=>{});
+  return actx;
+}
+function unlock(){
+  if(unlocked) return; unlocked = true; audio();
+  try{ if("speechSynthesis" in window){ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } }catch(e){}
+}
+document.addEventListener("pointerdown", unlock);
+document.addEventListener("keydown", unlock);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function distCurve(k){ const n=1024, c=new Float32Array(n); for(let i=0;i<n;i++){ const x=i*2/n-1; c[i]=(1+k)*x/(1+k*Math.abs(x)); } return c; }
+function squawk(){
+  const ctx = audio(); if(!ctx) return wait(300);
+  const t = ctx.currentTime + 0.02, dur = 0.38 + Math.random()*0.18, base = 480 + Math.random()*160;
+  const osc = ctx.createOscillator(); osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(base, t);
+  osc.frequency.linearRampToValueAtTime(base*2.4, t + dur*0.3);
+  osc.frequency.linearRampToValueAtTime(base*1.4, t + dur);
+  const lfo = ctx.createOscillator(); lfo.type = "square"; lfo.frequency.value = 38 + Math.random()*24;
+  const lfoG = ctx.createGain(); lfoG.gain.value = base*0.4; lfo.connect(lfoG); lfoG.connect(osc.frequency);
+  const len = Math.floor(ctx.sampleRate*(dur+0.05)); const nb = ctx.createBuffer(1, len, ctx.sampleRate); const d = nb.getChannelData(0);
+  for(let i=0;i<len;i++) d[i] = Math.random()*2-1;
+  const noise = ctx.createBufferSource(); noise.buffer = nb; const ng = ctx.createGain(); ng.gain.value = 0.35;
+  const shaper = ctx.createWaveShaper(); shaper.curve = distCurve(24);
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1600; bp.Q.value = 0.8;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(1.0, t+0.02);
+  env.gain.setValueAtTime(1.0, t+dur*0.65); env.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  const boost = ctx.createGain(); boost.gain.value = 1.6;
+  osc.connect(shaper); noise.connect(ng); ng.connect(shaper); shaper.connect(bp); bp.connect(env); env.connect(boost); boost.connect(ctx.destination);
+  [osc, lfo, noise].forEach(n => { n.start(t); n.stop(t+dur+0.05); });
+  return wait((dur+0.15)*1000);
+}
+function whistle(){
+  const ctx = audio(); if(!ctx) return wait(300);
+  const t = ctx.currentTime + 0.02;
+  const osc = ctx.createOscillator(); osc.type = "sine";
+  const vib = ctx.createOscillator(); vib.frequency.value = 6; const vg = ctx.createGain(); vg.gain.value = 22; vib.connect(vg); vg.connect(osc.frequency);
+  const env = ctx.createGain(); env.gain.setValueAtTime(0.0001, t);
+  osc.frequency.setValueAtTime(950, t);
+  osc.frequency.exponentialRampToValueAtTime(2200, t+0.28);
+  env.gain.exponentialRampToValueAtTime(0.7, t+0.04); env.gain.setValueAtTime(0.7, t+0.24); env.gain.exponentialRampToValueAtTime(0.0001, t+0.32);
+  osc.frequency.setValueAtTime(1050, t+0.42);
+  osc.frequency.exponentialRampToValueAtTime(2350, t+0.62);
+  osc.frequency.exponentialRampToValueAtTime(900, t+1.05);
+  env.gain.setValueAtTime(0.0001, t+0.42); env.gain.exponentialRampToValueAtTime(0.7, t+0.46); env.gain.setValueAtTime(0.7, t+0.95); env.gain.exponentialRampToValueAtTime(0.0001, t+1.08);
+  osc.connect(env); env.connect(ctx.destination);
+  [osc, vib].forEach(n => { n.start(t); n.stop(t+1.12); });
+  return wait(1200);
+}
+
+/* ---------- Text-to-speech ---------- */
+let voices = [];
+function loadVoices(){
+  const sel = $("voice");
+  if(!("speechSynthesis" in window)){ sel.innerHTML = '<option value="">Speech is not available in this browser</option>'; sel.disabled = true; return; }
+  voices = speechSynthesis.getVoices() || [];
+  const sorted = voices.slice().sort((a,b) => {
+    const ae = /^en/i.test(a.lang) ? 0 : 1, be = /^en/i.test(b.lang) ? 0 : 1;
+    return ae - be || a.name.localeCompare(b.name);
+  });
+  sel.innerHTML = '<option value="">Phone default</option>' + sorted.map(v => '<option value="'+v.voiceURI.replace(/"/g,"&quot;")+'">'+v.name.replace(/</g,"&lt;")+' ('+v.lang+')</option>').join("");
+  sel.value = S.voiceURI;
+  if(sel.value !== S.voiceURI) sel.value = "";
+}
+if("speechSynthesis" in window){
+  if(speechSynthesis.addEventListener) speechSynthesis.addEventListener("voiceschanged", loadVoices);
+  else speechSynthesis.onvoiceschanged = loadVoices;
+}
+$("voice").addEventListener("change", e => { S.voiceURI = e.target.value; save(); });
+const keepRefs = [];
+function speakLine(text){
+  return new Promise(res => {
+    if(!("speechSynthesis" in window)) return res();
+    const u = new SpeechSynthesisUtterance(text);
+    const v = voices.find(x => x.voiceURI === S.voiceURI);
+    if(v){ u.voice = v; u.lang = v.lang; }
+    u.pitch = S.pitch; u.rate = S.rate; u.volume = 1;
+    let done = false; const fin = () => { if(done) return; done = true; clearTimeout(tm); const i = keepRefs.indexOf(u); if(i>-1) keepRefs.splice(i,1); res(); };
+    const tm = setTimeout(fin, 2500 + text.length * 95 / S.rate);
+    u.onend = fin; u.onerror = fin;
+    keepRefs.push(u);
+    speechSynthesis.speak(u);
+  });
+}
+function splitSentences(t){ return (t.match(/[^.!?…]+[.!?…]+["'”’)]*\s*|[^.!?…]+$/g) || [t]).map(s => s.trim()).filter(Boolean); }
+let playToken = 0, lastReply = "";
+function stopSpeaking(){ playToken++; try{ speechSynthesis.cancel(); }catch(e){} }
+async function perform(text, opts){
+  opts = opts || {};
+  const my = ++playToken; setStatus("speaking"); lastReply = text;
+  try{ speechSynthesis.cancel(); }catch(e){}
+  await wait(250);
+  const lead = S.squawkFirst === "always" || (S.squawkFirst === "sometimes" && Math.random() < 0.4);
+  if(opts.lead !== false && lead && !/^\s*\[(squawk|whistle)\]/i.test(text)) await squawk();
+  const parts = text.split(/\[(squawk|whistle)\]/i);
+  for(let i=0;i<parts.length;i++){
+    if(my !== playToken) return;
+    if(i % 2 === 1){ if(S.sfxTags || opts.forceSfx){ await (parts[i].toLowerCase() === "whistle" ? whistle() : squawk()); } continue; }
+    for(const s of splitSentences(parts[i])){ if(my !== playToken) return; await speakLine(s); }
+  }
+  if(my === playToken){ setStatus("idle"); afterReply(); }
+}
+
+/* ---------- Listening ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const homeScreen = navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+const iosHome = isIOS && homeScreen;
+let micBlocked = !SR || iosHome, heardOnce = false, rec = null;
+function hintTyping(loud){
+  setStatus(status);
+  const inp = $("typeIn"); inp.focus();
+  if(!loud) return;
+  if(iosHome) addLog("note", "On iPhone, the microphone only works when this page is open in Safari itself, not from a home-screen icon. Open the link in Safari, or use a Siri shortcut (see the Brain tab).");
+  else addLog("note", "The microphone isn't available here. Type below, or tap the mic on your keyboard and talk. The Brain tab explains how to get tap-to-talk.");
+}
+function startListening(fromTap){
+  if(micBlocked){ hintTyping(fromTap); return; }
+  stopSpeaking();
+  try{ rec = new SR(); }catch(e){ micBlocked = true; setStatus("idle"); hintTyping(true); return; }
+  rec.lang = navigator.language || "en-US"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+  let finalText = "", interim = "", err = null, quiet = null;
+  const armQuiet = ms => { clearTimeout(quiet); quiet = setTimeout(() => { try{ rec && rec.stop(); }catch(e){} }, ms); };
+  armQuiet(8000);
+  rec.onresult = e => {
+    armQuiet(1600);
+    interim = "";
+    for(let i=e.resultIndex;i<e.results.length;i++){ const r = e.results[i]; if(r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript; }
+    $("interim").textContent = (finalText + " " + interim).trim();
+  };
+  rec.onerror = e => { err = e.error; };
+  rec.onend = () => {
+    clearTimeout(quiet); rec = null; $("interim").textContent = "";
+    if(err === "not-allowed" || err === "service-not-allowed" || err === "audio-capture"){
+      if(!heardOnce){ micBlocked = true; setStatus("idle"); hintTyping(true); }
+      else { setStatus("idle"); toast("Tap the drum to talk again."); }
+      return;
+    }
+    const said = (finalText || interim).trim();
+    if(said){ heardOnce = true; handleText(said); }
+    else { setStatus("idle"); if(fromTap) toast("Didn't catch that. Tap and try again."); }
+  };
+  setStatus("listening");
+  try{ rec.start(); }catch(e){ rec = null; setStatus("idle"); toast("Couldn't start the mic. Tap again."); }
+}
+$("drum").addEventListener("click", () => {
+  unlock(); lastActivity = Date.now();
+  if(status === "listening"){ if(rec) rec.stop(); return; }
+  if(status === "thinking") return;
+  if(status === "speaking"){ stopSpeaking(); setStatus("idle"); }
+  startListening(true);
+});
+$("typeForm").addEventListener("submit", e => {
+  e.preventDefault(); unlock();
+  const v = $("typeIn").value.trim(); if(!v) return;
+  $("typeIn").value = ""; $("typeIn").blur();
+  if(status === "speaking") stopSpeaking();
+  if(status === "thinking") return;
+  handleText(v);
+});
+function afterReply(){
+  if(S.keepListening && !micBlocked && heardOnce){
+    setTimeout(() => { if(status === "idle") startListening(false); }, 600);
+  }
+}
+
+/* ---------- Brain ---------- */
+let sampleFn = null, history = [];
+if(window.claude && typeof window.claude.use === "function"){
+  window.claude.use("sample").then(s => { sampleFn = s || null; renderBrain(); }).catch(() => {});
+}
+function brainKind(){ return sampleFn ? "claude" : (S.apiKey && S.apiKey.trim() ? "key" : "none"); }
+function renderBrain(){
+  const k = brainKind();
+  $("brainLine").textContent = k === "claude" ? "Brain: Claude (built in)" : k === "key" ? "Brain: your API key" : "Brain: none yet (commands only)";
+  $("brainHelp").textContent = k === "claude"
+    ? "You're running inside Claude, so his brain is already connected. No key needed here. The API key below is only for a copy of this app you host yourself."
+    : "Paste an Anthropic API key to give him a brain. You can make one at console.anthropic.com. Each reply costs a fraction of a cent. Without a key he only does your \"Says exactly\" commands and catchphrases.";
+}
+function weight(n){ n = Number(n); if(!n) return null; if(n <= 3) return "A light touch of"; if(n <= 6) return "A solid helping of"; return "Heavy on"; }
+function lines(t){ return String(t || "").split(/\n+/).map(s => s.trim()).filter(Boolean); }
+function buildSystem(){
+  const name = (S.name || "the bird").trim(), who = (S.userName || "").trim();
+  const mix = [];
+  const w1 = weight(S.tiki), w2 = weight(S.jungle), w3 = weight(S.pirate);
+  if(w1) mix.push(w1 + " the showbirds of Walt Disney's Enchanted Tiki Room: a theatrical, warm host who welcomes everyone like it's opening night, loves an audience, bursts into song and gets everyone singing along, banters with imaginary bird friends up in the rafters, and has big vaudeville timing.");
+  if(w2) mix.push(w2 + " a Jungle Cruise skipper: deadpan tour-guide puns and groan-worthy jokes delivered with total confidence, mock danger, pointing out sights that aren't there, and laughing at his own bad jokes.");
+  if(w3) mix.push(w3 + " Rummy, the talkative parrot first mate at the Beak and Barrel tavern: salty sidekick to a legendary rumrunning sea captain, tells tall tales of treasure, curses and narrow escapes, keeps a weathered eye on everyone's behavior, and uses pirate slang in moderation.");
+  const len = {quip:"1 or 2 short sentences, under 30 words.", chatty:"2 to 4 sentences.", story:"A short tall tale of about 5 to 7 sentences when asked for a story; otherwise 2 to 4 sentences."}[S.length] || "1 or 2 short sentences.";
+  const now = new Date().toLocaleString([], {weekday:"long", month:"long", day:"numeric", year:"numeric", hour:"numeric", minute:"2-digit"});
+  let p = "You are " + name + ", a talking parrot. You live inside an animatronic macaw whose beak moves to every word you say: everything you write is spoken aloud by a text-to-speech voice.\n\n";
+  p += "PERSONALITY MIX\n" + (mix.length ? mix.map(m => "- " + m).join("\n") : "- A cheerful, chatty parrot.") + "\nBlend these into one original character. You are " + name + ", not any of those characters.\n\n";
+  if(S.backstory && S.backstory.trim()) p += "BACKSTORY\n" + S.backstory.trim() + "\n\n";
+  if(who) p += "YOU'RE TALKING WITH\n" + who + ". Use the name now and then, not in every line.\n\n";
+  const cps = lines(S.catchphrases);
+  if(cps.length) p += "CATCHPHRASES (drop one in only now and then, never in back-to-back replies)\n" + cps.map(c => "- " + c).join("\n") + "\n\n";
+  const rules = lines(S.rules);
+  if(rules.length) p += "HOUSE RULES\n" + rules.map(r => "- " + r).join("\n") + "\n\n";
+  p += "AUDIENCE\n" + (S.kidFriendly ? "Kids may be listening. Keep everything family-friendly: no alcohol jokes (the barrels hold root beer), nothing crude, spooky is fine but never gory." : "Grown-ups. Grog and rum jokes are fine; keep it PG-13.") + "\n\n";
+  p += "HOW TO TALK\n- Length: " + len + "\n- Write only the words you say out loud. No emoji, no asterisk actions, no stage directions, no lists, no markdown, and don't start with your own name.\n- Write for the ear: short punchy sentences, contractions, bird noises spelled out (Rawk! Haw haw!).\n";
+  if(S.sfxTags) p += "- You may put ONE [squawk] or [whistle] tag in a reply where a real bird sound should play. Optional.\n";
+  p += "- Write original material. Never recite song lyrics or theme-park scripts word for word.\n- It is now " + now + ".";
+  return p;
+}
+function trimHistory(){
+  while(history.length > 12) history.shift();
+  while(history.length && history[0].role !== "user") history.shift();
+}
+async function ask(system, messages){
+  const maxTok = {quip:150, chatty:260, story:480}[S.length] || 200;
+  const kind = brainKind();
+  if(kind === "claude"){
+    const convo = messages.map(m => (m.role === "user" ? (S.userName || "Guest") : (S.name || "Bird")) + ": " + m.content).join("\n");
+    const input = system + "\n\n<conversation>\n" + convo + "\n</conversation>\n\nWrite " + (S.name || "the bird") + "'s next line only: the exact words he says out loud, nothing else.";
+    try{
+      const r = await sampleFn(input, {modelTier:"quick", cache:false});
+      return r && r.text ? r.text : "";
+    }catch(e){
+      const code = e && e.code;
+      if(code === "not_granted") throw new Error("Claude access wasn't allowed for this page. Use an API key in the Brain tab instead.");
+      if(code === "rate_limited") throw new Error("His brain needs a breather. Try again in a minute.");
+      throw new Error("His brain didn't answer. Try again.");
+    }
+  }
+  if(kind === "key"){
+    const call = async (fast) => {
+      const body = {model:S.model, max_tokens: fast ? maxTok : 2000, system:system, messages:messages};
+      if(fast){ body.thinking = {type:"disabled"}; body.output_config = {effort:"low"}; }
+      let resp;
+      try{
+        resp = await fetch("https://api.anthropic.com/v1/messages", {
+          method:"POST",
+          headers:{"content-type":"application/json","x-api-key":S.apiKey.trim(),"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+          body:JSON.stringify(body)
+        });
+      }catch(e){ throw new Error("Couldn't reach his brain. Check the internet connection."); }
+      if(resp.status === 401) throw new Error("The API key was refused. Check it in the Brain tab.");
+      if(resp.status === 400 && fast) return null;
+      if(resp.status === 429 || resp.status === 529) throw new Error("His brain is busy. Try again in a moment.");
+      if(!resp.ok){ let m = ""; try{ m = (await resp.json()).error.message; }catch(e){} throw new Error("Brain error " + resp.status + (m ? ": " + m : "")); }
+      const data = await resp.json();
+      if(data.stop_reason === "refusal") return "Rawk! I'm not touching that one. Ask me something else!";
+      const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join(" ").trim();
+      return text || (fast ? null : "");
+    };
+    let out = await call(true);
+    if(out === null) out = await call(false);
+    if(!out) throw new Error("His brain came back empty. Try again.");
+    return out;
+  }
+  return fallbackLine();
+}
+function fallbackLine(){
+  const cps = lines(S.catchphrases);
+  return cps.length ? cps[Math.floor(Math.random()*cps.length)] : "Rawk! I need a brain! Somebody open the Brain tab!";
+}
+function clean(t){
+  let s = String(t || "").replace(/\*[^*\n]{1,80}\*/g, " ").replace(/[_#`>~]/g, "");
+  try{ s = s.replace(/\p{Extended_Pictographic}/gu, ""); }catch(e){}
+  const nm = (S.name || "").trim();
+  if(nm) s = s.replace(new RegExp("^\\s*" + nm.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + "\\s*:\\s*", "i"), "");
+  s = s.replace(/^\s*["“]|["”]\s*$/g, "").replace(/\s+/g, " ").trim();
+  return s || "Rawk!";
+}
+async function handleText(said){
+  lastActivity = Date.now();
+  addLog("you", said);
+  const cmd = matchCommand(said);
+  if(cmd && cmd.mode === "say"){
+    history.push({role:"user", content:said}, {role:"assistant", content:cmd.text}); trimHistory();
+    addLog("bird", cmd.text);
+    await perform(cmd.text, {forceSfx:true});
+    return;
+  }
+  setStatus("thinking");
+  let msg = said;
+  if(cmd) msg += "\n\n(That triggers your \"" + cmd.phrases.split(",")[0].trim() + "\" routine. Do this: " + cmd.text + ")";
+  let reply;
+  try{ reply = clean(await ask(buildSystem(), history.concat([{role:"user", content:msg}]))); }
+  catch(e){ setStatus("idle"); addLog("note", e.message); return; }
+  history.push({role:"user", content:said}, {role:"assistant", content:reply}); trimHistory();
+  addLog("bird", reply);
+  lastActivity = Date.now();
+  await perform(reply);
+}
+
+/* ---------- Barker mode ---------- */
+let lastActivity = Date.now(), recentBarks = [];
+function updateBarkLine(){
+  const el = $("barkLine");
+  if(!S.barker){ el.textContent = ""; return; }
+  if(!unlocked){ el.textContent = "Tap anywhere once so he's allowed to make sound."; return; }
+  const left = Math.max(0, S.barkerMinutes*60000 - (Date.now() - lastActivity));
+  el.textContent = "Barker mode on. Next call-out in about " + Math.max(1, Math.ceil(left/60000)) + " min. Keep this screen open.";
+}
+async function bark(){
+  lastActivity = Date.now(); setStatus("thinking");
+  const ask1 = "(Nobody has talked to you for a few minutes. Call out to anyone who might be walking by and lure them over to chat, like a barker outside a show. One or two sentences, something fresh" + (recentBarks.length ? ". Don't reuse any of these recent call-outs: " + recentBarks.join(" / ") : "") + ".)";
+  let line;
+  try{ line = clean(await ask(buildSystem(), [{role:"user", content:ask1}])); }catch(e){ line = fallbackLine(); }
+  recentBarks.push(line); if(recentBarks.length > 4) recentBarks.shift();
+  addLog("bird", line, "barker");
+  lastActivity = Date.now();
+  await perform(line);
+}
+setInterval(() => {
+  updateBarkLine();
+  if(!S.barker || status !== "idle" || !unlocked) return;
+  if(Date.now() - lastActivity >= S.barkerMinutes*60000) bark();
+}, 10000);
+let wakeLock = null;
+async function keepAwake(){
+  try{ if("wakeLock" in navigator && !wakeLock){ wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } }catch(e){}
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && (S.barker || S.keepListening)) keepAwake(); });
+
+/* ---------- Buttons ---------- */
+$("btnRepeat").addEventListener("click", () => { unlock(); if(lastReply) perform(lastReply, {lead:false}); else toast("He hasn't said anything yet."); });
+$("btnSquawk").addEventListener("click", () => { unlock(); squawk(); });
+$("btnStop").addEventListener("click", () => { stopSpeaking(); if(rec) try{ rec.abort(); }catch(e){} setStatus("idle"); });
+$("btnClear").addEventListener("click", () => { history = []; recentBarks = []; const log = $("log"); log.innerHTML = ""; addLog("note", "New conversation. He's forgotten everything said so far."); });
+$("testVoice").addEventListener("click", () => { unlock(); perform("Rawk! Testing, testing! Is this thing on? Can the folks in the back hear me?", {lead:false}); });
+$("testSquawk").addEventListener("click", () => { unlock(); squawk(); });
+$("testWhistle").addEventListener("click", () => { unlock(); whistle(); });
+$("testBrain").addEventListener("click", async () => {
+  unlock();
+  if(brainKind() === "none"){ toast("Paste an API key first."); return; }
+  setStatus("thinking");
+  try{
+    const line = clean(await ask(buildSystem(), [{role:"user", content:"(Introduce yourself in one or two sentences. This is a sound check.)"}]));
+    addLog("bird", line); await perform(line);
+    toast("Brain works!");
+  }catch(e){ setStatus("idle"); toast(e.message); }
+});
+$("exportBtn").addEventListener("click", async () => {
+  const out = clone(S); delete out.apiKey;
+  const json = JSON.stringify(out, null, 2);
+  try{ await navigator.clipboard.writeText(json); toast("Copied. Paste it into the other copy of the app."); }
+  catch(e){ $("importBox").value = json; $("importBox").select(); toast("Couldn't copy automatically. It's in the box below: copy it from there."); }
+});
+$("importBtn").addEventListener("click", () => {
+  const raw = $("importBox").value.trim(); if(!raw){ toast("Paste a copied personality first."); return; }
+  try{
+    const o = JSON.parse(raw); delete o.apiKey;
+    const key = S.apiKey; S = Object.assign(clone(DEFAULTS), o, {apiKey:key}); save(); renderSettings();
+    $("importBox").value = ""; toast("Loaded " + (S.name || "the bird") + "'s personality.");
+  }catch(e){ toast("That text isn't a copied personality. Copy it again and paste the whole thing."); }
+});
+let resetArmed = false;
+$("resetBtn").addEventListener("click", () => {
+  if(!resetArmed){ resetArmed = true; $("resetBtn").textContent = "Tap again to reset"; setTimeout(() => { resetArmed = false; $("resetBtn").textContent = "Reset everything"; }, 4000); return; }
+  resetArmed = false; $("resetBtn").textContent = "Reset everything";
+  const key = S.apiKey; S = clone(DEFAULTS); S.apiKey = key; save(); renderSettings(); toast("Back to the original Squawker.");
+});
+
+renderSettings();
+setStatus("idle");
+updateBarkLine();
+})();
+</script>
+</body>
+</html>
